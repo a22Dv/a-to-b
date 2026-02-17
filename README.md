@@ -6,3 +6,12 @@
 
 A software-based ballistic intercept solver written in Python/C++ for simulated environments.
 
+>[!NOTE]
+>README to be expanded.
+
+## License
+This project is licensed under the MIT License - see LICENSE for more details.
+
+## Author
+
+a22Dv - a22dev.gl@gmail.com
