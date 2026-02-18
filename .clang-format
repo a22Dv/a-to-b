@@ -1,0 +1,57 @@
+# --------------------------------- Top level -------------------------------- #
+BasedOnStyle: Google
+IndentWidth: 4
+ColumnLimit: 100
+
+# --------------------------------- Alignment -------------------------------- #
+DerivePointerAlignment: false
+PointerAlignment: Right
+ReferenceAlignment: Pointer
+AlignOperands: Align
+AlignTrailingComments:
+  Kind: Always
+  OverEmptyLines: 1
+
+# -------------------------------- SingleLine -------------------------------- #
+AllowShortBlocksOnASingleLine: Never
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortCompoundRequirementOnASingleLine: false
+AllowShortEnumsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLambdasOnASingleLine: Inline
+AllowShortLoopsOnASingleLine: false
+AllowShortNamespacesOnASingleLine: false
+AlignAfterOpenBracket: BlockIndent # clang-format <v22.
+
+# -------------------------------- BinPacking -------------------------------- #
+BinPackArguments: false
+BinPackParameters: OnePerLine
+
+# ----------------------------------- Break ---------------------------------- #
+BreakAfterAttributes: Always
+BreakBeforeBraces: Attach # K&R
+BreakConstructorInitializers: AfterColon
+BreakTemplateDeclarations: Yes
+
+# clang-format v22 required
+# BreakBeforeCloseBracketFunction: true
+# BreakBeforeCloseBracketBracedList: true
+# BreakBeforeCloseBracketIf: true
+# BreakBeforeCloseBracketLoop: true
+# BreakBeforeCloseBracketSwitch: true
+# BreakBeforeConceptDeclarations: Always
+# BreakBeforeTemplateCloser: true
+# BreakBeforeTernaryOperators: true
+
+
+
+# ---------------------------------- Include --------------------------------- #
+IncludeBlocks: Preserve
+
+# ---------------------------------- Indent ---------------------------------- #
+IndentGotoLabels: true
+IndentPPDirectives: BeforeHash
+
+
+

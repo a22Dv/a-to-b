@@ -3,7 +3,7 @@ requires = ["setuptools >= 77.0.3"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "a-to-b"
+name = "a_to_b"
 description = "A software-based ballistic intercept solver for simulated environments."
 version = "0.0.1"
 dependencies = []
