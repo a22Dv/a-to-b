@@ -4,11 +4,10 @@
 #include <dxgiformat.h>
 #include <stdint.h>
 #include <string.h>
-#include <windows.h>
 #include <winerror.h>
 
 #define DLLEXPORT __declspec(dllexport)
-#define ACQUIRE_TIMEOUT_MS 60
+#define ACQUIRE_TIMEOUT_MS 15
 #define DX_CALL(object, function, ...) (((object)->lpVtbl)->function(object, __VA_ARGS__))
 #define REQUIRE(cond, action) \
     do {                      \
@@ -38,14 +37,14 @@ typedef struct {
 typedef struct {
     DXGIState dxstate;
     FrameData fdata;
-} CaptureState;
+} ScreenCapture;
 
 HRESULT dxgi_init(DXGIState *state);
 HRESULT fdata_init(FrameData *state, IDXGIOutput1 *out, ID3D11Device *dev);
 
-/// @brief Create CaptureState object.
-DLLEXPORT CaptureState *capture_state_create() {
-    CaptureState *state = calloc(1, sizeof(CaptureState));
+/// @brief Create ScreenCapture object.
+DLLEXPORT ScreenCapture *capture_state_create() {
+    ScreenCapture *state = calloc(1, sizeof(ScreenCapture));
     REQUIRE(state, goto exit);
     REQUIRE(SUCCEEDED(dxgi_init(&state->dxstate)), goto exit);
     REQUIRE(
@@ -57,7 +56,8 @@ exit:
     return NULL;
 }
 
-DLLEXPORT void capture_state_destroy(CaptureState *state) {
+/// @brief Destroy ScreenCapture object.
+DLLEXPORT void capture_state_destroy(ScreenCapture *state) {
     DXGIState *dxstate = &state->dxstate;
     FrameData *fdata = &state->fdata;
     DX_CALL(fdata->d3d11staging, Release);
@@ -71,14 +71,18 @@ DLLEXPORT void capture_state_destroy(CaptureState *state) {
     DX_CALL(dxstate->d3d11dev, Release);
 }
 
-DLLEXPORT int capture_state_height(CaptureState* state) {
+/// @brief Accessor for capture state height.
+DLLEXPORT int capture_state_height(ScreenCapture* state) {
     return state->fdata.height;
 }
 
-DLLEXPORT int capture_state_width(CaptureState* state) {
+
+/// @brief Accessor for capture state width.
+DLLEXPORT int capture_state_width(ScreenCapture* state) {
     return state->fdata.width;
 }
 
+/// @brief Helper initialization function. Initialize frame data.
 HRESULT fdata_init(FrameData *state, IDXGIOutput1 *out, ID3D11Device *dev) {
     DXGI_OUTPUT_DESC desc;
     HRESULT hr = DX_CALL(out, GetDesc, &desc);
@@ -163,7 +167,8 @@ exit:
     return hr;
 }
 
-DLLEXPORT HRESULT capture_state_get_frame(CaptureState *state, void *frame) {
+/// @brief Retrieve frame and copy to given memory location.
+DLLEXPORT HRESULT capture_state_get_frame(ScreenCapture *state, void *frame) {
     HRESULT hr = S_OK;
     uint8_t prog = 0;
     REQUIRE(state, hr = E_FAIL; goto exit);

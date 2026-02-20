@@ -1,13 +1,11 @@
-import cv2 as cv
-import a_to_b.wt_visual_source as wt
-import time
+import a_to_b.screen_capture as sc
+import cv2
+
 
 def main() -> None:
-    vs: wt.WTVisualSource = wt.WTVisualSource()
+    scr: sc.ScreenCapture = sc.ScreenCapture()
+    cv2.imshow("SHOT", scr.capture_frame())
+    cv2.waitKey(0)
     
-    while True:
-        frame = vs.get_frame()
-        targets = vs.scan_initial_targets(frame)
-
 if __name__ == "__main__":
     main()
