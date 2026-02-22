@@ -42,7 +42,7 @@ class ScreenCapture:
             raise SystemError()
         self._frame.flags.writeable = False
 
-    def capture_frame(self) -> NDArray:
+    def capture_frame_bgra(self) -> NDArray:
         hr: int = SCREEN_CAPTURE_DLL.capture_state_get_frame(
             self._handle, self._frame.ctypes.data
         )

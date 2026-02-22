@@ -3,3 +3,8 @@ a_to_b.egg-info/
 __pycache__/
 build/
 .vscode/
+*.dll
+*.exp
+*.ilk
+*.lib
+*.pdb

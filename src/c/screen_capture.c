@@ -17,7 +17,8 @@
     } while (0)
 
 typedef struct {
-    ID3D11Texture2D *d3d11frame;
+    // Staging texture is required as the raw frame
+    // cannot be accessed by the CPU by itself.
     ID3D11Texture2D *d3d11staging;
     DXGI_OUTDUPL_FRAME_INFO frame_info;
     int height;
@@ -61,7 +62,6 @@ DLLEXPORT void capture_state_destroy(ScreenCapture *state) {
     DXGIState *dxstate = &state->dxstate;
     FrameData *fdata = &state->fdata;
     DX_CALL(fdata->d3d11staging, Release);
-    DX_CALL(fdata->d3d11frame, Release);
     DX_CALL(dxstate->dxdupl, Release);
     DX_CALL(dxstate->dxout1, Release);
     DX_CALL(dxstate->dxout, Release);
@@ -72,13 +72,12 @@ DLLEXPORT void capture_state_destroy(ScreenCapture *state) {
 }
 
 /// @brief Accessor for capture state height.
-DLLEXPORT int capture_state_height(ScreenCapture* state) {
+DLLEXPORT int capture_state_height(ScreenCapture *state) {
     return state->fdata.height;
 }
 
-
 /// @brief Accessor for capture state width.
-DLLEXPORT int capture_state_width(ScreenCapture* state) {
+DLLEXPORT int capture_state_width(ScreenCapture *state) {
     return state->fdata.width;
 }
 
@@ -126,6 +125,7 @@ HRESULT dxgi_init(DXGIState *state) {
     );
     REQUIRE(SUCCEEDED(hr), goto exit);
 
+    // Call chain due to hierarchy. *1 is used as it is the version to support duplication.
     prog = 1;
     hr = DX_CALL(state->d3d11dev, QueryInterface, &IID_IDXGIDevice1, (void **)&state->dxdev);
     REQUIRE(SUCCEEDED(hr), goto exit);
@@ -148,21 +148,13 @@ HRESULT dxgi_init(DXGIState *state) {
     return hr;
 exit:
     switch (prog - 1) {
-        case 5:
-            DX_CALL(state->dxdupl, Release);
-        case 4:
-            DX_CALL(state->dxout1, Release);
-        case 3:
-            DX_CALL(state->dxout, Release);
-        case 2:
-            DX_CALL(state->dxadpt, Release);
-        case 1:
-            DX_CALL(state->dxdev, Release);
-        case 0:
-            DX_CALL(state->d3d11ctx, Release);
-            DX_CALL(state->d3d11dev, Release);
-        default:
-            break;
+        case 5: DX_CALL(state->dxdupl, Release);
+        case 4: DX_CALL(state->dxout1, Release);
+        case 3: DX_CALL(state->dxout, Release);
+        case 2: DX_CALL(state->dxadpt, Release);
+        case 1: DX_CALL(state->dxdev, Release);
+        case 0: DX_CALL(state->d3d11ctx, Release); DX_CALL(state->d3d11dev, Release);
+        default: break;
     }
     return hr;
 }
@@ -185,16 +177,12 @@ DLLEXPORT HRESULT capture_state_get_frame(ScreenCapture *state, void *frame) {
     REQUIRE(SUCCEEDED(hr), goto exit);
     DX_CALL(rs, Release);
     rs = NULL;
-    if (state->fdata.d3d11frame) {
-        DX_CALL(state->fdata.d3d11frame, Release);
-    }
-    state->fdata.d3d11frame = data;
     state->fdata.frame_info = dpinfo;
     DX_CALL(
         state->dxstate.d3d11ctx,
         CopyResource,
         (ID3D11Resource *)state->fdata.d3d11staging,
-        (ID3D11Resource *)state->fdata.d3d11frame
+        (ID3D11Resource *)data
     );
 
     D3D11_MAPPED_SUBRESOURCE sbrsc;
@@ -211,6 +199,8 @@ DLLEXPORT HRESULT capture_state_get_frame(ScreenCapture *state, void *frame) {
 
     char *rframe = sbrsc.pData;
     char *cframe = frame;
+
+    // Switch over to a single contiguous memcpy call if GPU padding does not exist.
     if (sbrsc.RowPitch == state->fdata.width * sizeof(uint32_t)) {
         memcpy(cframe, rframe, state->fdata.width * sizeof(uint32_t) * state->fdata.height);
     } else {
@@ -228,10 +218,8 @@ DLLEXPORT HRESULT capture_state_get_frame(ScreenCapture *state, void *frame) {
 exit:
     switch (prog - 1) {
         case 2:
-        case 1:
-            DX_CALL(rs, Release);
-        default:
-            break;
+        case 1: DX_CALL(rs, Release);
+        default: break;
     }
     if (hr == DXGI_ERROR_WAIT_TIMEOUT) {
         hr = S_OK;  // Override timeout.
