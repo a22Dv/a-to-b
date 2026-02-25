@@ -1,21 +1,27 @@
-import os
-import shutil
+import subprocess
+from typing import List
 
-os.system("clang-cl /Zi /Od /LD ./src/c/overlay_window.c /Feoverlay_window.dll d3d11.lib dxgi.lib user32.lib dxguid.lib")
+ROOT_SRC: str = "./src/c/"
+ROOT_DLL: str = "./src/a_to_b/dlls/"
+source_files: List[str] = [ROOT_SRC + "overlay_window.cpp"]
+output_files: List[str] = [ROOT_DLL + "overlay_window.dll"]
 
-try:
-    os.remove("./src/a_to_b/dlls/overlay_window.dll")
-    os.remove("./src/a_to_b/dlls/overlay_window.exp")
-    os.remove("./src/a_to_b/dlls/overlay_window.ilk")
-    os.remove("./src/a_to_b/dlls/overlay_window.lib")
-    os.remove("./src/a_to_b/dlls/overlay_window.pdb")
-except Exception as e:
-    pass
-
-
-shutil.copyfile("./overlay_window.dll", "./src/a_to_b/dlls/overlay_window.dll")
-shutil.copyfile("./overlay_window.exp", "./src/a_to_b/dlls/overlay_window.exp")
-shutil.copyfile("./overlay_window.ilk", "./src/a_to_b/dlls/overlay_window.ilk")
-shutil.copyfile("./overlay_window.lib", "./src/a_to_b/dlls/overlay_window.lib")
-shutil.copyfile("./overlay_window.pdb", "./src/a_to_b/dlls/overlay_window.pdb")
-
+for sfile, ofile in zip(source_files, output_files):
+    result: int = subprocess.call(
+        [
+            "clang-cl",
+            "/O2",
+            "/DNDEBUG",
+            "/LD",
+            "/EHsc",
+            sfile,
+            f"/Fe{ofile}",
+            "d3d11.lib",
+            "dxgi.lib",
+            "dcomp.lib",
+            "user32.lib",
+        ]
+    )
+    if result:
+        break
+    print(f"Building {sfile}... -> Return Code: {result}")

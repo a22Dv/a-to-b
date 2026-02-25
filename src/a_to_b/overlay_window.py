@@ -1,141 +1,117 @@
 import ctypes
 import numpy as np
-from abc import ABC
-from pathlib import Path
-from typing import Tuple
+import numba
+
 from numpy.typing import NDArray
+from pathlib import Path
 
-_OVERLAY_WINDOW_DLL_LOC: Path = Path(__file__).parent / "dlls" / "overlay_window.dll"
-_OVERLAY_WINDOW_DLL: ctypes.CDLL = ctypes.CDLL(_OVERLAY_WINDOW_DLL_LOC)
+OVERLAY_DLL_LOC: Path = Path(__file__).parent / "dlls" / "overlay_window.dll"
+OVERLAY_DLL: ctypes.CDLL = ctypes.CDLL(OVERLAY_DLL_LOC)
 
-_OVERLAY_WINDOW_DLL.ovlw_wnclass_init.argtypes = ()
-_OVERLAY_WINDOW_DLL.ovlw_wnclass_init.restype = None
-_OVERLAY_WINDOW_DLL.ovlw_wnclass_uninit.argtypes = ()
-_OVERLAY_WINDOW_DLL.ovlw_wnclass_uninit.restype = None
-_OVERLAY_WINDOW_DLL.ovlw_create.argtypes = (
+OVERLAY_DLL.create_overlay.argtypes = (
+    ctypes.c_void_p,
     ctypes.c_int,
     ctypes.c_int,
     ctypes.c_int,
     ctypes.c_int,
 )
-_OVERLAY_WINDOW_DLL.ovlw_create.restype = ctypes.c_void_p
-_OVERLAY_WINDOW_DLL.ovlw_destroy.argtypes = (ctypes.c_void_p,)
-_OVERLAY_WINDOW_DLL.ovlw_destroy.restype = None
-_OVERLAY_WINDOW_DLL.ovlw_update.argtypes = (
+OVERLAY_DLL.create_overlay.restype = ctypes.c_long
+OVERLAY_DLL.destroy_overlay.argtypes = (ctypes.c_void_p,)
+OVERLAY_DLL.destroy_overlay.restype = None
+OVERLAY_DLL.update_overlay.argtypes = (
     ctypes.c_void_p,
     ctypes.c_void_p,
     ctypes.c_int,
     ctypes.c_int,
     ctypes.c_int,
 )
-_OVERLAY_WINDOW_DLL.ovlw_update.restype = ctypes.c_long
-_OVERLAY_WINDOW_DLL.ovlw_set_position.argtypes = (
-    ctypes.c_void_p,
-    ctypes.c_int,
-    ctypes.c_int,
-)
-_OVERLAY_WINDOW_DLL.ovlw_set_position.restype = ctypes.c_long
-_OVERLAY_WINDOW_DLL.ovlw_set_window_size.argtypes = (
-    ctypes.c_void_p,
-    ctypes.c_int,
-    ctypes.c_int,
-)
-_OVERLAY_WINDOW_DLL.ovlw_set_window_size.restype = ctypes.c_long
-_OVERLAY_WINDOW_DLL.ovlw_get_position_x.argtypes = (ctypes.c_void_p,)
-_OVERLAY_WINDOW_DLL.ovlw_get_position_x.restype = ctypes.c_int
-_OVERLAY_WINDOW_DLL.ovlw_get_position_y.argtypes = (ctypes.c_void_p,)
-_OVERLAY_WINDOW_DLL.ovlw_get_position_y.restype = ctypes.c_int
-_OVERLAY_WINDOW_DLL.ovlw_get_window_height.argtypes = (ctypes.c_void_p,)
-_OVERLAY_WINDOW_DLL.ovlw_get_window_height.restype = ctypes.c_int
-_OVERLAY_WINDOW_DLL.ovlw_get_window_width.argtypes = (ctypes.c_void_p,)
-_OVERLAY_WINDOW_DLL.ovlw_get_window_width.restype = ctypes.c_int
-_OVERLAY_WINDOW_DLL.ovlw_get_display_height.argtypes = (ctypes.c_void_p,)
-_OVERLAY_WINDOW_DLL.ovlw_get_display_height.restype = ctypes.c_int
-_OVERLAY_WINDOW_DLL.ovlw_get_display_width.argtypes = (ctypes.c_void_p,)
-_OVERLAY_WINDOW_DLL.ovlw_get_display_width.restype = ctypes.c_int
-_OVERLAY_WINDOW_DLL.ovlw_poll_messages.argtypes = (ctypes.c_void_p,)
-_OVERLAY_WINDOW_DLL.ovlw_poll_messages.restype = None
+OVERLAY_DLL.update_overlay.restype = ctypes.c_long
+OVERLAY_DLL.reposition_overlay.argtypes = (ctypes.c_void_p, ctypes.c_int, ctypes.c_int)
+OVERLAY_DLL.reposition_overlay.restype = ctypes.c_long
+OVERLAY_DLL.resize_overlay.argtypes = (ctypes.c_void_p, ctypes.c_int, ctypes.c_int)
+OVERLAY_DLL.resize_overlay.restype = ctypes.c_long
+
+CHANNEL_COUNT_BGRA: int = 4
 
 
-OVERLAY_WINDOW_CHANNEL_COUNT: int = 4
-
-
-class OverlayWindow:
+class Overlay:
     _handle: ctypes.c_void_p = ctypes.c_void_p()
-    _buffer: NDArray = np.zeros((), dtype=np.uint8)
-    _wx: int = 0
-    _wy: int = 0
-    _wsx: int = 0
-    _wsy: int = 0
+    _buffer_u8: NDArray = np.zeros((), dtype=np.uint8)
+    _cx: int = 0
+    _cy: int = 0
+    _csx: int = 0
+    _csy: int = 0
 
-    def __init__(self, tx=0, ty=0, tsx=854, tsy=480) -> None:
-        _OVERLAY_WINDOW_DLL.ovlw_wnclass_init()
-        self._handle = _OVERLAY_WINDOW_DLL.ovlw_create(tx, ty, tsx, tsy)
-        if self._handle:
-            print(self._handle)
-            raise SystemError()
-        self._wx, self._wy, self._wsx, self._wsy = tx, ty, tsx, tsy
-        self._buffer = np.zeros((ty, tx, OVERLAY_WINDOW_CHANNEL_COUNT), dtype=np.uint8)
+    def __init__(self, x=0, y=0, sx=854, sy=480) -> None:
+        hr: int = OVERLAY_DLL.create_overlay(ctypes.byref(self._handle), x, y, sx, sy)
+        if hr < 0:
+            raise SystemError(f"HRESULT: {hr:#x}")
+        self._cx = x
+        self._cy = y
+        self._csx = sx
+        self._csy = sy
+        self._buffer_u8 = np.zeros((sy, sx, CHANNEL_COUNT_BGRA), dtype=np.uint8)
 
-    def set_size(self, sx: int, sy: int) -> None:
-        hr: int = _OVERLAY_WINDOW_DLL.ovlw_set_size(self._handle, sx, sy)
-        if hr:
-            raise SystemError()
-        self._wsx = sx
-        self._wsy = sy
-        self._buffer = np.resize(self._buffer, (sy, sx, OVERLAY_WINDOW_CHANNEL_COUNT))
-
-    def append(self, frame: NDArray, cx: int, cy: int) -> None:
-        fbx, fby = max(-cx, 0), max(-cy, 0)
-        fex: int = min(frame.shape[1], self._buffer.shape[1] - cx)
-        fey: int = min(frame.shape[0], self._buffer.shape[0] - cy)
-        if fbx >= fex or fby >= fey:  # Out-of-bounds.
+    def append(self, frame: NDArray, nx=0, ny=0) -> None:
+        fbx, fby = max(-nx, 0), max(-ny, 0)
+        bbx, bby = max(nx, 0), max(ny, 0)
+        fw: int = min(frame.shape[1] - fbx, self._buffer_u8.shape[1] - bbx)
+        fh: int = min(frame.shape[0] - fby, self._buffer_u8.shape[0] - bby)
+        if fw <= 0 or fh <= 0:
             return
-        bbx, bby = max(cx, 0), max(cy, 0)
-        bex: int = bbx + (fex - fbx)
-        bey: int = bby + (fey - fby)
+        fex, fey = fbx + fw, fby + fh
+        bex, bey = bbx + fw, bby + fh
 
-        frame_view: NDArray = frame[fby:fey, fbx:fex, :]
-        buffer_view: NDArray = self._buffer[bby:bey, bbx:bex, :]
-
-        norm_alpha: NDArray = (frame_view[:, :, 3] / 255.0)[..., None]
-        inv_alpha: NDArray = 1.0 - norm_alpha
-        foreground: NDArray = frame_view[:, :, :3] * norm_alpha
-        background: NDArray = buffer_view[:, :, :3] * inv_alpha
-
-        buffer_view[:, :, :3] = (background + foreground).astype(np.uint8)
+        fsection: NDArray = frame[fby:fey, fbx:fex, :]
+        bsection: NDArray = self._buffer_u8[bby:bey, bbx:bex, :]
+        self._alpha_blend_bgra(fsection, bsection)
 
     def update(self) -> None:
-        _OVERLAY_WINDOW_DLL.ovlw_update(
+        hr: int = OVERLAY_DLL.update_overlay(
             self._handle,
-            self._buffer.ctypes.data_as(ctypes.c_void_p),
-            self._buffer.shape[1],  # X
-            self._buffer.shape[0],  # Y
-            self._buffer.shape[2],  # Z (Channels)
+            self._buffer_u8.ctypes.data_as(ctypes.c_void_p),
+            self._csx,
+            self._csy,
+            CHANNEL_COUNT_BGRA,
         )
+        if hr < 0:
+            raise SystemError(f"HRESULT: {hr:#x}")
 
-        # Call polling automatically.
-        _OVERLAY_WINDOW_DLL.ovlw_poll_messages(self._handle)
+    def resize(self, nx: int, ny: int) -> None:
+        hr: int = OVERLAY_DLL.resize_overlay(self._handle, nx, ny)
+        if hr < 0:
+            raise SystemError(f"HRESULT: {hr:#x}")
+        self._buffer_u8 = np.zeros((ny, nx, CHANNEL_COUNT_BGRA), dtype=np.uint8)
+        self._csx = nx
+        self._csy = ny
 
-    def set_position(self, x: int, y: int) -> None:
-        hr: int = _OVERLAY_WINDOW_DLL.ovlw_set_position(self._handle, x, y)
-        if hr:
-            raise SystemError()
-        self._wx = x
-        self._wy = y
+    def reposition(self, nx: int, ny: int) -> None:
+        hr: int = OVERLAY_DLL.reposition_overlay(self._handle, nx, ny)
+        if hr < 0:
+            raise SystemError(f"HRESULT: {hr:#x}")
+        self._cx = nx
+        self._cy = ny
 
-    def get_position(self) -> Tuple[int, int]:
-        return (self._wx, self._wy)
-
-    def get_size(self) -> Tuple[int, int]:
-        return (self._wsx, self._wsy)
-
-    def get_display_size(self) -> Tuple[int, int]:
-        return (
-            _OVERLAY_WINDOW_DLL.ovlw_get_display_width(self._handle),
-            _OVERLAY_WINDOW_DLL.ovlw_get_display_height(self._handle),
-        )
+    @staticmethod
+    @numba.njit(parallel=False, cache=True, fastmath=True, boundscheck=False)
+    def _alpha_blend_bgra(frame_section: NDArray, buffer_section: NDArray) -> None:
+        h, w, _ = frame_section.shape
+        for i in range(h):
+            for j in range(w):
+                af = frame_section[i,j,3]
+                if not af:
+                    continue
+                elif af == 255:
+                    for k in range(4):
+                        buffer_section[i,j,k] = frame_section[i,j,k]
+                    continue
+                inv_a = 255 - af
+                ab = buffer_section[i,j,3]
+                for k in range(3):
+                    cf = frame_section[i,j,k]
+                    cb = buffer_section[i,j,k]
+                    buffer_section[i,j,k] = (cf * af + cb * inv_a) // 255
+                buffer_section[i,j,3] = (af * 255 + ab * inv_a) // 255
 
     def __del__(self) -> None:
-        _OVERLAY_WINDOW_DLL.ovlw_destroy(self._handle)
-        _OVERLAY_WINDOW_DLL.ovlw_wnclass_uninit()
+        OVERLAY_DLL.destroy_overlay(ctypes.byref(self._handle))
