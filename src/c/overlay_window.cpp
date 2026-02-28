@@ -1,3 +1,21 @@
+/**
+ * @brief
+ * Custom DXGI Flip-Sequential Window implementation.
+ *
+ * @warning
+ * Does not support multi-monitor displays and
+ * scaling != 100%.
+ *
+ * @remarks
+ * - Does not handle DXGI_ERROR_LOST
+ * - Caller must check for DXGI_ERROR_WAIT_TIMEOUT and
+ *   handle it accordingly.
+ * - Performance differs heavily under memory pressure.
+ * - Memory pressure / GPU usage heavily affects performance.
+ * - Baseline performance, ~0.3ms per (1280x720) frame from caller to data hand-off.
+ * - Tested under: (Windows 11, Ryzen 7 8845HS, LPDDR5X-7500, 1080P60).
+ */
+
 #include <d3d11.h>
 #include <d3d11_1.h>
 #include <d3dcommon.h>
@@ -190,7 +208,7 @@ BOOL Overlay::initialize(int x, int y, int sx, int sy) noexcept {
     _window_width = sx;
     HRESULT hr = S_OK;
     if (_hwnd && SUCCEEDED(hr)) {
-        hr = _d3d_dcomp_init(sx, sy);  //
+        hr = _d3d_dcomp_init(sx, sy); 
         if (FAILED(hr)) {
             return hr;
         }

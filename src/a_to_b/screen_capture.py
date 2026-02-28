@@ -59,6 +59,10 @@ class ScreenCapture:
         self._buffer.flags.writeable = False
 
     def capture(self) -> NDArray:
+        """
+        Captures a frame and returns a read-only reference to its
+        internal buffer.
+        """
         hr: int = SCRDLL.capture_frame(
             self._class_handle,
             self._buffer.ctypes.data_as(ctypes.c_void_p),
